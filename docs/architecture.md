@@ -1,39 +1,100 @@
 # Architecture
 
-Three-layer Digital Business Architecture (Lecture 2.1): front end, information management, back end, plus a cross-cutting communication hub.
+Three-layer Digital Business Architecture (Lecture 2.1), delivered as **one system with three
+windows** over **one shared database**.
 
-**Stakeholders:** A1 sweet producers · A2 retail shops · A3 supermarket outlets · A4 individual consumers · A5 owner & worker
+```
+                    +--------------------------------+
+                    |      ONE SHARED DATABASE       |
+                    +--------------------------------+
+                      /            |             \
+        +-------------+   +----------------+   +----------------+
+        | MOBILE POS  |   |  ADMIN SYSTEM  |   | PUBLIC WEBSITE |
+        | (in the van)|   |  (the owner)   |   | (individuals)  |
+        +-------------+   +----------------+   +----------------+
+               |                   |                    |
+        Retail shops get     Owner manages        Online customers
+        a printed signed     stock, orders,       order and pay
+        receipt + SMS        suppliers, reports   (COD or card)
+                                     |
+                             Alert to owner, then
+                             phone call to supplier
+```
 
-## Layer 1 — Front end
+| Layer | What sits here |
+|---|---|
+| **Front end** | Public website, the POS screen the shop sees, the SMS messages |
+| **Information management** | The shared database, reports, alerts, forecasts |
+| **Back end** | Admin system: inventory, suppliers, purchasing, accounts |
 
-| Module | What it does | Solves |
+## Who uses what
+
+This is the most important decision in the project.
+
+| Group | Uses | Receives | Why |
+|---|---|---|---|
+| **Retail shops** (~300, main revenue) | Nothing digital | One **printed receipt signed by pen** which they keep, plus an **SMS** with the outstanding balance. Charged the **wholesale** price | Shop owners are busy and many will not use an app. Forcing them to would mean the system is simply not used |
+| **Individual customers** | Public website | Browse, order, pay by COD or card, track the order. Charged the **retail** price (110%) | This group is online already and cannot currently find or buy from the business at all |
+| **Suppliers / producers** | Nothing digital | A **phone call from the owner**, prompted by a system alert | Many producers are older and rural. A phone call is how business is actually done |
+| **Owner** | Admin web system | Dashboard, full inventory control, CRUD, reports, alerts | The person who needs to see the whole business |
+| **Worker** | Mobile POS device | Route list, billing, returns capture, payment recording | Data must be captured where the sale happens |
+
+Lecture 3 states that some customers transact online, some prefer offline, and many do both — so
+do not assume everyone wants digital. Lecture 2.2 lists the digital divide as a real barrier and
+advises keeping offline options. Giving shops paper and SMS is the design responding to the
+actual customer, not a weakness.
+
+## Two price levels
+
+Shops and individuals cannot pay the same price.
+
+- **Wholesale price** — the stored base price, charged on the POS to retail shops.
+- **Retail price** — `wholesale × 1.10`, derived automatically, charged on the website.
+
+The markup lives once in system settings so the two prices can never drift apart.
+`SaleLine.price_type` records which price was charged, so profit is reportable per channel.
+
+This is **partial, non-competing disintermediation** (Lecture 2.2): Jogy *is* the middleman, so
+selling online at the shop price would mean undercutting the 300 shops that are its main revenue.
+
+## The eight build modules
+
+One member owns each module end to end: database table → backend service → user screen.
+
+| Module | Owns | Solves |
 |---|---|---|
-| F1 Retailer ordering app | Catalogue with photos and prices, reorder from last order, live credit balance and due dates, returns request, new-product samples. A lightweight web app *and* a WhatsApp ordering flow. | P2 P5 P10 P12 |
-| F2 Producer portal | Rolling demand forecast per producer line, purchase orders, quality scores and shelf-life performance by batch. | P6 P7 P9 |
-| F3 Consumer storefront | Direct-to-consumer festival packs, gift boxes and bulk orders with delivery. Small revenue at first; reveals true end-demand. | P11 P12 |
-| F4 Field sales & delivery app | Mobile, offline-capable: scan batch, record delivery, take payment, log shop shelf stock, photograph damaged goods. The most important module for a two-person business. | P2 P4 P5 P9 |
+| **M1** Foundation, Auth & Pricing | Login, users, products, the two-price engine, settings | P3 |
+| **M2** Suppliers & Goods Received | Supplier records, batches, purchase prices, expiry dates | P7 |
+| **M3** Expiry Engine & Reordering | Four-stage expiry, FEFO, reorder levels, supplier alerts | P6 P8 P11 |
+| **M4** Stock, Shops & Routes | Five stock locations, 300 shops, routes, van loading, reconciliation | P2 |
+| **M5** POS Billing & Receipt | Sale transaction, receipt printing, signature capture | P5 P4 |
+| **M6** Offline Sync, Credit & Payments | Offline-first sync, credit ledger, PayHere | P1 P5 |
+| **M7** Returns & Claims | Photo evidence, partial returns, supplier claims | P9 P7 |
+| **M8** Website, SMS & Delivery | Public shop, SMS, COD, courier tracking, online orders | P10 P12 |
 
-## Layer 2 — Information management
+See [work-division.md](work-division.md) for the full breakdown.
 
-| Module | What it does | Solves |
+## Expiry: four stages
+
+| Stage | When | What the system does |
 |---|---|---|
-| I1 Batch & expiry intelligence | Stock tracked per batch with a First-Expired-First-Out picking rule, across store, van and each shop's shelf. Amber alert at 30 days to expiry, red at 10, with a suggested discount or redistribution. | P2 P8 P11 |
-| I2 Dynamic pricing & true-margin engine | Landed cost per batch (purchase price + transport + allocated wastage); flags any product below the owner's margin floor and suggests (never imposes) a new price. | P3 P4 |
-| I3 Credit & receivables control | Ledger per shop: taken, paid, outstanding, due. Credit limits, ageing buckets, automatic polite reminders, and a credit block past an owner-controlled threshold. | P1 P5 |
-| I4 Demand forecasting & seasonal planner | Forecast per product per shop from sales history, weighted by a festival calendar (Sinhala and Tamil New Year, Vesak, Ramadan, Christmas). | P1 P6 P11 |
-| I5 Quality & returns traceability | Photo and grade the batch at goods receipt, time-stamped against producer and batch number, so return claims have evidence. Plans consolidated return trips. | P7 P9 |
-| I6 CRM & organizational memory | Profile per shop: what they buy and refuse, order rhythm, payment behaviour, decision-maker, competitor products. | P10 P12 |
+| **Green** (Safe) | More than 46 days left | Normal selling |
+| **Yellow** (Watch) | 45 to 22 days | Marked *sell first* on the van loading list |
+| **Orange** (Act now) | 21 to 8 days | Alert raised; suggest a discount or a return |
+| **Red** (Expired) | Expired, or under 7 days | **Blocked from sale** — cannot be loaded or sold online |
 
-## Layer 3 — Back end
+**FEFO** — the POS always picks the earliest-expiring batch automatically. The website sells only
+from **Green** batches, because a customer paying a premium should not receive short-dated stock.
 
-| Module | What it does | Solves |
+## Five stock locations
+
+| Location | Sellable? | Meaning |
 |---|---|---|
-| B1 Central database | One source of truth for products, batches, shops, producers, orders, payments and movements. | All |
-| B2 e-Procurement | Purchase orders raised from the forecast, sent digitally, with receipt confirmation and a goods-received check. | P1 P6 P7 |
-| B3 Route & delivery optimisation | Day's route built from which shops are due stock or payment; groups return trips. | P9 P12 |
-| B4 Digital payments | LankaQR and online bank transfer at delivery, settled into the ledger. | P1 P5 |
-| B5 Analytics dashboard | True profit by product, shop and trip; dead-stock list; leakage report; forecast accuracy. | P4 P11 |
+| `STORE` | Yes | Good stock at the store |
+| `VAN` | Yes | Good stock loaded for selling |
+| `VAN-QUARANTINE` | **No** | Returns collected today, in the van's sealed crate |
+| `QUARANTINE` | **No** | Returns on the quarantine shelf awaiting a claim |
+| `DISPOSED` | **No** | Written off; kept so the loss stays visible in reports |
 
-## Cross-cutting — Communication hub
-
-WhatsApp Business API, SMS and in-app alerts across all three layers: order confirmations, payment reminders, expiry warnings, new-product announcements.
+Because quarantine is a *location* and not a flag, expired food is excluded from the loading
+list, the POS and the website **by construction**, not by remembering to filter it out.

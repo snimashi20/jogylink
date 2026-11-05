@@ -51,9 +51,17 @@ Jogy is a middleman and the internet removes middlemen. The answer is to stop co
 
 ```
 Producers  →  JogyLink  →  Retail shops  →  Consumers
-(forecast,    (batch, credit,  (catalogue ordering,  (gift boxes, festival
- quality       price and        own credit balance,   packs; reveals true
- feedback)     demand record)   no near-expiry stock)  end-demand)
+(phone call   (batch, credit,  (signed receipt +     (website: gift boxes,
+ prompted by   price and        SMS balance; fresher  festival packs at
+ an alert)     demand record)   stock; no app)        retail price)
 ```
+
+**Note on channel design.** Shops and producers are served through paper, SMS and phone calls,
+not through portals. The information still reaches them — the *channel* simply matches what they
+already use. See [architecture.md](architecture.md).
+
+**Note on pricing.** The direct-to-consumer channel sells at **110% of the shop price**. Jogy is
+itself the middleman, so selling online at the shop price would disintermediate its own 300
+shops. The uplift makes the new channel additive rather than cannibalising.
 
 Frameworks: disintermediation / re-intermediation (Lecture 2.2); the four eBusiness dimensions (Lecture 1) — transactional (online ordering), value-generative (demand intelligence), integration (producers and shops on one record), wider reach (direct-to-consumer).

@@ -1,62 +1,97 @@
 # JogyLink
 
-From sweet trader to demand network — a digital platform for **Jogy Products**, a two-person sweets distribution business (one owner, one worker) that buys from small producers and sells on credit to retail shops.
+A digital platform for **Jogy Products**, a two-person sweets distribution business (one owner,
+one worker) that buys from small producers and sells on credit to about 300 retail shops.
 
-Course project: IN22-S5-IS3200 · Go-Digital.
+Course project: IN23-S5-IS3200 · Go-Digital · Group 4 — Opero.
 
 ## The idea
 
-Jogy believes it buys and sells sweets. It actually **carries risk and routes demand** between producers who cannot reach shops and shops that cannot source from many producers. The sweets are the vehicle; the information (who buys what, where, when, at what price and freshness) is the asset, and today it lives only in the owner's head.
+Jogy believes it buys and sells sweets. It actually **carries risk and routes demand** between
+producers who cannot reach shops and shops that cannot source from many producers. The sweets are
+the vehicle; the information — who buys what, where, when, at what price and freshness — is the
+asset, and today it lives only in the owner's head.
 
-JogyLink records that information and uses it to stop the money leaking out (expiry, dead stock, tied-up credit, unrecovered returns, wasted trips, margin erosion, stockouts).
+JogyLink records that information and uses it to stop the money leaking out: expiry, dead stock,
+tied-up credit, unrecovered returns, wasted trips, margin erosion, stockouts.
 
-## Architecture
+## One system, three windows, one database
 
-Three layers, per the Digital Business Architecture (Lecture 2.1). Full detail in [docs/architecture.md](docs/architecture.md).
+```
+                    +--------------------------------+
+                    |      ONE SHARED DATABASE       |
+                    +--------------------------------+
+                      /            |             \
+        +-------------+   +----------------+   +----------------+
+        | MOBILE POS  |   |  ADMIN SYSTEM  |   | PUBLIC WEBSITE |
+        | (in the van)|   |  (the owner)   |   | (individuals)  |
+        +-------------+   +----------------+   +----------------+
+```
 
-| Layer | Modules | Folder |
+If these three did not share one database, we would rebuild the present problem in digital form:
+three sets of records that disagree with each other.
+
+## Who uses what
+
+| Group | Uses | Receives |
 |---|---|---|
-| Front end | F1 retailer app, F2 producer portal, F3 consumer storefront, F4 field app | [frontend/](frontend/) |
-| Information management | I1 batch & expiry, I2 pricing & margin, I3 credit, I4 forecasting, I5 quality & returns, I6 CRM | [backend/](backend/) |
-| Back end | B1 database, B2 procurement, B3 routing, B4 payments, B5 analytics | [database/](database/), [backend/](backend/) |
-| Cross-cutting | Communication hub (WhatsApp Business API, SMS, in-app alerts) | [comms/](comms/) |
+| **Retail shops** (~300, main revenue) | Nothing digital | A **printed receipt signed by pen** which they keep, plus an **SMS** with the outstanding balance. Charged the **wholesale** price |
+| **Individual customers** | Public website | Order and pay by COD or card, track the order. Charged the **retail** price (110%) |
+| **Suppliers** | Nothing digital | A **phone call from the owner**, prompted by a system alert |
+| **Owner** | Admin web system | Dashboard, inventory, reports, alerts |
+| **Worker** | Mobile POS device | Route list, billing, returns capture, payments |
+
+Shops and suppliers are deliberately given paper, SMS and phone calls rather than an app.
+Lecture 3: do not assume everyone wants digital. Lecture 2.2 lists the digital divide as a real
+barrier. This is the design responding to the actual customer.
+
+## Two price levels
+
+**Wholesale** for shops, **retail at 110%** for the website, derived automatically from one
+setting. Selling online at the shop price would mean Jogy undercutting the 300 shops that are its
+main revenue — *partial, non-competing disintermediation* (Lecture 2.2).
 
 ## Repository layout
 
 ```
-frontend/    PWAs: f1-retailer-app, f2-producer-portal, f3-consumer-storefront, f4-field-app
-backend/     one folder per information / back-end module (i1…i6, b2…b5)
-database/    B1 central PostgreSQL database and migrations
-comms/       communication hub (WhatsApp, SMS, in-app)
-docs/        blueprint, architecture, problem map, rollout, technology choices
+apps/
+  api/        NestJS backend — one module per team member
+  pos/        React Native + Expo, offline-first POS for the van
+  web/        Next.js — (admin) and (shop) route groups
+packages/
+  shared/     Zod schemas = the frozen API contract
+  db/         Drizzle schema, used for both Postgres and device SQLite
+  ui/         The 24 shared components and design tokens
+database/     Migrations
+docs/         Blueprint, architecture, problem map, rollout, technology, sync, work division
 ```
 
-## Rollout
+## Build order
 
-| Wave | When | Modules |
+| Stage | Months | Theme |
 |---|---|---|
-| 1 — Stop the bleeding | 0–3 months | F4, I1, I3, B1 |
-| 2 — Connect the shops | 3–6 months | F1, I2, I6, B4, B5 |
-| 3 — Connect producers and consumers | 6–12 months | F2, F3, I4, I5, B2, B3 |
+| 1 | 1–2 | **Capture the data** — POS, batches, stock, credit, receipts |
+| 2 | 3–4 | **Use the data** — expiry alerts, FEFO, reordering, return claims |
+| 3 | 5–6 | **Open new revenue** — public website, PayHere, COD, courier |
 
-See [docs/rollout.md](docs/rollout.md).
-
-## Technology (summary)
-
-PWA front ends (offline-first field app), WhatsApp Business API as a parallel ordering channel, PostgreSQL as the single source of truth, QR batch labels, LankaQR payments, forecasting by moving average with a seasonal index. AI forecasting, blockchain traceability and a native mobile app were considered and rejected as disproportionate at this scale. See [docs/technology.md](docs/technology.md).
+Root causes RC1 (no stock record) and RC2 (no financial record) cause 6 of the 12 problems, so
+nothing else can work until that data exists. See [docs/rollout.md](docs/rollout.md).
 
 ## Getting started
 
 ```bash
 cp .env.example .env
 docker compose up -d      # PostgreSQL for local development
+pnpm install
 ```
 
 ## Docs
 
-- [Blueprint](docs/blueprint.md) — the core-business reframe, informational representation, leakage, strategy
-- [Architecture](docs/architecture.md) — layers and component catalogue
-- [Problem map](docs/problem-map.md) — the 12 reported problems → modules → lecture frameworks
+- [Blueprint](docs/blueprint.md) — the core-business reframe, informational representation, leakage
+- [Architecture](docs/architecture.md) — layers, who-uses-what, the eight modules, expiry, stock locations
+- [Work division](docs/work-division.md) — what each of the eight members owns
+- [Problem map](docs/problem-map.md) — the 12 problems → modules → how completely each is solved
+- [Sync design](docs/sync.md) — the offline outbox pattern (M6)
+- [Rollout](docs/rollout.md) — three stages and the adoption barriers
 - [Stakeholders](docs/stakeholders.md) — win-win for every party
-- [Rollout](docs/rollout.md) — three waves and the adoption barrier
 - [Technology](docs/technology.md) — choice per layer and what was rejected
