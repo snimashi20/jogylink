@@ -85,6 +85,19 @@ docker compose up -d      # PostgreSQL for local development
 pnpm install
 ```
 
+## How we work
+
+Branch from `develop`, open a pull request back into `develop`, get your review partner to
+approve, then merge. **Never push to `main`.**
+
+```bash
+git checkout develop
+git pull
+git checkout -b yourname/m6-offline-sync
+```
+
+Full rules and the review-partner ring: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
 ## Docs
 
 - [Blueprint](docs/blueprint.md) — the core-business reframe, informational representation, leakage
