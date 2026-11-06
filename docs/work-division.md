@@ -153,11 +153,32 @@ module. M1 builds the page frames.
 | 11 | Each member writes their own report section |
 | 12 | M2 compiles the final document. Presentation rehearsals |
 
+## Review partners
+
+Branch from `develop`, PR back into `develop`, partner approves, then you merge. Never touch
+`main`. Full rules in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+| You | Reviewed by | You review |
+|---|---|---|
+| M1 | M2 | M8 |
+| M2 | M3 | M1 |
+| M3 | M4 | M2 |
+| M4 | M5 | M3 |
+| M5 | M6 | M4 |
+| M6 | M7 | M5 |
+| M7 | M8 | M6 |
+| M8 | M1 | M7 |
+
+Partners are adjacent to the people whose work touches theirs: M5–M6 share the sync engine,
+M2–M3 share batches and expiry, M7–M8 share returns and delivery.
+
 ## Working rules
 
 | Rule | Why |
 |---|---|
 | You own your module end to end | Database, backend and screen. If it breaks, it is yours to fix |
+| Branch from `develop`, PR back to `develop` | `main` stays submission-ready at all times |
+| Never merge without an approval | Your review partner is named above |
 | Never edit another module's code | Raise it with the owner. Only exception is the agreed M5–M6 pairing |
 | API contracts frozen after week 1 | They live in `packages/shared` as Zod schemas, so breaking one is a compile error |
 | Use the shared components | Do not build your own button; ask the owner to extend it |
