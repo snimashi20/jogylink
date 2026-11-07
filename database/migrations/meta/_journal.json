@@ -8,6 +8,13 @@
       "when": 1793953801950,
       "tag": "0000_cool_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794080195241,
+      "tag": "0001_mixed_yellow_claw",
+      "breakpoints": true
     }
   ]
 }
