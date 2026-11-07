@@ -13,6 +13,8 @@ export const ShopResponseSchema = z.object({
   address: z.string().nullable(),
   locality: z.string().nullable(),
   creditLimit: MoneySchema,
+  routeId: z.string().uuid().nullable(),
+  visitOrder: z.number().int().positive().nullable(),
   isActive: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
