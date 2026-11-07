@@ -79,11 +79,32 @@ nothing else can work until that data exists. See [docs/rollout.md](docs/rollout
 
 ## Getting started
 
+Requires Node 22 and pnpm 10 (`corepack enable` picks the right pnpm automatically).
+
 ```bash
 cp .env.example .env
-docker compose up -d      # PostgreSQL for local development
+docker compose up -d                          # PostgreSQL for local development
 pnpm install
+pnpm --filter @jogylink/shared build          # the shared contract other packages import
+pnpm --filter @jogylink/db db:migrate         # create the tables
+pnpm --filter @jogylink/db db:seed            # owner + worker users, settings, 30 sample products
+pnpm test                                     # unit tests (database tests run in-process, no Docker)
 ```
+
+Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md): branch from `develop`, PR into `develop`, never push to `main`.
+
+## How we work
+
+Branch from `develop`, open a pull request back into `develop`, get your review partner to
+approve, then merge. **Never push to `main`.**
+
+```bash
+git checkout develop
+git pull
+git checkout -b yourname/m6-offline-sync
+```
+
+Full rules and the review-partner ring: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
 ## Docs
 
