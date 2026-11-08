@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { requireUser } from '../../lib/session';
+import { AdminNav } from './admin-nav';
 import { SignOutButton } from './sign-out-button';
 
 /**
@@ -12,7 +13,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   return (
     <div>
       <header className="flex items-center justify-between bg-brand px-6 py-3">
-        <span className="text-h2 font-bold tracking-tight text-white uppercase">JogyLink</span>
+        <div className="flex items-center gap-8">
+          <span className="text-h2 font-bold tracking-tight text-white uppercase">JogyLink</span>
+          {user.role === 'owner' ? <AdminNav /> : null}
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-body text-white">
             {user.name} <span className="text-caption opacity-80">({user.role})</span>

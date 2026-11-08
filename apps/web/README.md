@@ -22,3 +22,12 @@ The `(admin)` pages are for the owner. A worker who signs in here sees a short "
 the owner" message. The API enforces roles itself; this only decides what to show.
 
 Set `API_URL` (see `.env.example`) so the web server can find the API.
+
+## Calling the API from a page
+
+- **Server components** use `apiGet()` from `lib/server-api.ts`.
+- **Client components** use `callApi()` from `lib/client-api.ts`. It goes through the app's own
+  `/backend/...` route, which adds the login token from the cookie. Writes must be JSON, and paths
+  that try to climb out of the API are refused. The API still decides who may do what.
+- Money is typed in rupees and converted with the shared helpers, so a price never passes through
+  floating-point arithmetic. The "website price" preview uses the same function as the server.
