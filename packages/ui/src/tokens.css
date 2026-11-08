@@ -1,0 +1,50 @@
+/*
+ * JogyLink design tokens (UI Design Guide, sections 2-4). Tailwind v4 reads this @theme block and
+ * turns every token into utilities: bg-brand, text-alarm, border-sand, rounded-control, ...
+ *
+ * Names say what a colour MEANS, not what it looks like. Guide name in the comment.
+ *
+ * Two reds, on purpose:
+ *   brand = "this is Jogy" (logo, header strip, the ONE primary button)
+ *   alarm = "stop"         (expired, overdue, delete). Always the darker of the two.
+ * Status colours have fixed meanings and are never used for decoration.
+ */
+@theme {
+  /* Brand */
+  --color-brand: #e4002b; /* Bucket Red. White text only at 16px bold or larger */
+  --color-brand-deep: #a1001e; /* Deep Red: hover, pressed, small red text */
+  --color-charcoal: #231f20; /* structure, body text */
+  --color-cream: #f5f0e8; /* page background */
+
+  /* Supporting */
+  --color-sand: #e3ded6; /* Light Sand: dividers, borders, disabled fill */
+  --color-stone: #8a8178; /* secondary text, placeholders, helper text */
+  --color-gold: #f2a900; /* Golden Crumb: secondary accent. DARK text only */
+
+  /* Status (fixed meanings) */
+  --color-safe: #2e7d4f; /* Fresh Green: safe, paid, success */
+  --color-watch: #e8b931; /* Watch Amber: watch, pending. DARK text only */
+  --color-act: #e07b39; /* Act Orange: act now, low */
+  --color-alarm: #8b0010; /* Danger Crimson: blocked, overdue, delete */
+  --color-info: #2f6f9f; /* Info Blue: tracking, notices */
+
+  /* Shape */
+  --radius-control: 6px; /* buttons, inputs */
+  --radius-card: 10px; /* cards, panels */
+  --radius-modal: 14px;
+
+  /* Elevation */
+  --shadow-level-1: 0 1px 3px rgba(35, 31, 32, 0.1);
+  --shadow-level-2: 0 4px 10px rgba(35, 31, 32, 0.14);
+  --shadow-level-3: 0 10px 28px rgba(35, 31, 32, 0.2);
+
+  /* Type scale, web column (the POS app has its own, larger one) */
+  --text-display: 32px;
+  --text-h1: 24px;
+  --text-h2: 20px;
+  --text-h3: 16px;
+  --text-body: 15px;
+  --text-caption: 13px;
+
+  --font-sans: 'Inter Variable', 'Noto Sans Sinhala', 'Segoe UI', Arial, sans-serif;
+}
