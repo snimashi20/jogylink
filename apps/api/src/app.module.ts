@@ -7,6 +7,7 @@ import { ProductsModule } from './products/products.module';
 import { RoutesModule } from './routes/routes.module';
 import { SettingsModule } from './settings/settings.module';
 import { ShopsModule } from './shops/shops.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ShopsModule } from './shops/shops.module';
     AuthModule,
     SettingsModule,
     ProductsModule,
+    UsersModule,
     ShopsModule,
     RoutesModule,
   ],

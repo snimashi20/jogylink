@@ -22,6 +22,7 @@ export const testEnv = loadEnv({
   DATABASE_URL: 'postgresql://unused:unused@localhost:5432/unused',
   JWT_SECRET: 'test-secret-'.padEnd(48, 'x'),
   LOGIN_MAX_ATTEMPTS: '3',
+  BCRYPT_ROUNDS: '4',
 });
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
