@@ -3,6 +3,9 @@
 export * from './user';
 export * from './product';
 export * from './setting';
+// M4
+export * from './route';
+export * from './shop';
 // M2: supplier, batch
 // M3: purchase_order
 // M4: stock, shop, route

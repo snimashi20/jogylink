@@ -4,10 +4,20 @@ import { ConfigModule } from './config/config.module';
 import { DbModule } from './db/db.module';
 import { HealthController } from './health.controller';
 import { ProductsModule } from './products/products.module';
+import { RoutesModule } from './routes/routes.module';
 import { SettingsModule } from './settings/settings.module';
+import { ShopsModule } from './shops/shops.module';
 
 @Module({
-  imports: [ConfigModule, DbModule, AuthModule, SettingsModule, ProductsModule],
+  imports: [
+    ConfigModule,
+    DbModule,
+    AuthModule,
+    SettingsModule,
+    ProductsModule,
+    ShopsModule,
+    RoutesModule,
+  ],
   controllers: [HealthController],
 })
 export class AppModule {}
