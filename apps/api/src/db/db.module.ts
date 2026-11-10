@@ -17,7 +17,9 @@ export const DB_POOL = 'DB_POOL';
     {
       provide: DB_POOL,
       inject: [APP_ENV],
-      useFactory: (env: Env) => new Pool({ connectionString: env.DATABASE_URL }),
+      useFactory: (env: Env) =>
+        // Without a timeout, an unreachable database makes start-up hang forever.
+        new Pool({ connectionString: env.DATABASE_URL, connectionTimeoutMillis: 10_000 }),
     },
     {
       provide: DB,

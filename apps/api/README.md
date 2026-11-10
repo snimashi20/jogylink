@@ -56,3 +56,31 @@ Clients send `Authorization: Bearer <accessToken>`. Notes:
   The count is held in memory, which is fine for one API instance.
 - There is no logout endpoint: the token is stateless, so the client just discards it.
 
+## Settings and products (M1)
+
+| Endpoint | Who | What |
+|---|---|---|
+| `GET /api/settings` | signed in | All settings (markup, expiry stages, claim triggers) |
+| `PUT /api/settings/:key` | owner | Change one setting: `{ "value": 1.15 }` |
+| `GET /api/products` | owner | All products with **both** prices (screen A2) |
+| `GET /api/products/pos` | signed in | Active products, **wholesale price only** (the POS) |
+| `POST /api/products` | owner | Create. SKU is trimmed and upper-cased; duplicate SKU returns `409` |
+| `PATCH /api/products/:id` | owner | Update. `retailMarkupOverride: null` goes back to the system markup |
+
+There is no DELETE: batches and sales will point at products, so switch one off with
+`PATCH { "active": false }`.
+
+**Reading settings from your own module:**
+
+```ts
+constructor(@Inject(SettingsService) private readonly settings: SettingsService) {}
+const markup = await this.settings.get('retail_markup'); // typed as number
+```
+
+Import `SettingsModule` in your module to inject it. Reads always hit the database, so a change by
+the owner applies to the very next request. The expiry stages are kept in order
+(green > yellow > orange); a change that breaks the order is rejected with `422`.
+
+**For M8 (website):** `ProductsService.listForWeb()` returns active products with the **retail
+price only**. Build your own controller on top of it and never return wholesale prices.
+
