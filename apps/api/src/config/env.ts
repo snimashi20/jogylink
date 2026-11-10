@@ -19,6 +19,8 @@ const EnvSchema = z.object({
     .int()
     .min(60)
     .default(12 * 60 * 60),
+  /** bcrypt cost for new passwords. Tests lower it for speed. */
+  BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
   /** Comma-separated list of allowed web origins. */
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   /** After this many wrong passwords in a row (per IP + username) login is locked for a while. */
