@@ -34,3 +34,11 @@ Stub implementations are delivered in week 2 so nobody is blocked.
 - Touch targets are **64 × 64 px** minimum; body text 18 px minimum (sunlight, one hand, hurry).
 - The offline banner is **amber, not red** — offline is normal on a rural route, and a red alarm
   several times a day trains the worker to ignore warnings.
+
+## Sign-in (M1)
+
+- Signing in needs the server once. After that the session is kept in the phone's secure store and the app opens straight into the app with no signal.
+- Not reaching the server never signs anyone out. Only the server answering 401 does (expired login, or the owner switched the account off). Any request that gets a 401 should go through `authorizedFetch` in `src/auth`, which returns the person to the sign-in screen.
+- M6: set `guardSignOut` in `src/auth/index.ts` so signing out is blocked while sales are unsent.
+- Set the API address with `EXPO_PUBLIC_API_URL` (default `http://10.0.2.2:3001/api` for the Android emulator).
+- Run `pnpm --filter @jogylink/pos test` for the sign-in logic tests.
