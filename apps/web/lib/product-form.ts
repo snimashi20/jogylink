@@ -1,3 +1,4 @@
+import { checkMarkup } from './markup';
 import { toCents, fromCents, type CreateProduct, type UnitType } from '@jogylink/shared';
 
 export interface ProductFormValues {
@@ -39,14 +40,9 @@ export function validateProductForm(
 
   let markup: number | null = null;
   if (v.markup.trim() !== '') {
-    const n = Number(v.markup.trim());
-    if (!Number.isFinite(n) || !/^\d+(\.\d{1,4})?$/.test(v.markup.trim())) {
-      errors.markup = 'Enter a number such as 1.15, or leave it blank to use the shop-wide markup.';
-    } else if (n < 1) {
-      errors.markup = 'Enter 1.00 or more, so the website is never cheaper than the shop.';
-    } else if (n > 10) {
-      errors.markup = 'Enter 10 or less. A markup of 10 means ten times the wholesale price.';
-    } else markup = n;
+    const checked = checkMarkup(v.markup);
+    if (checked.ok) markup = checked.value;
+    else errors.markup = checked.error;
   }
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
