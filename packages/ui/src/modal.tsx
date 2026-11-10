@@ -49,6 +49,11 @@ type ConfirmCommon = {
   message?: string;
   /** May be async. While it runs, both buttons are locked so it cannot run twice. */
   onConfirm: () => void | Promise<void>;
+  /**
+   * When `onConfirm` fails, turns the error into a specific sentence for the person
+   * ("You cannot switch off your own account."). Return nothing to use the generic message.
+   */
+  describeError?: (error: unknown) => string | undefined;
 };
 
 /**
@@ -63,10 +68,10 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
   const { open, onOpenChange, confirmLabel, cancelLabel = 'Cancel', onConfirm } = props;
   const destructive = props.destructive === true;
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setFailed(false);
+    if (open) setFailure(null);
   }, [open]);
 
   const title = destructive ? `${confirmLabel} ${props.itemName}?` : confirmLabel;
@@ -74,12 +79,13 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
 
   async function handleConfirm() {
     setPending(true);
-    setFailed(false);
+    setFailure(null);
     try {
       await onConfirm();
       onOpenChange(false);
-    } catch {
-      setFailed(true); // stay open so the user can retry or cancel
+    } catch (error) {
+      // stay open so the user can retry or cancel
+      setFailure(props.describeError?.(error) || 'Something went wrong. Try again, or cancel.');
     } finally {
       setPending(false);
     }
@@ -120,9 +126,9 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         </>
       }
     >
-      {failed ? (
+      {failure ? (
         <p role="alert" className="text-caption text-alarm">
-          Something went wrong. Try again, or cancel.
+          {failure}
         </p>
       ) : null}
     </Modal>

@@ -138,6 +138,39 @@ describe('ConfirmDialog (C10, destructive)', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).not.toHaveAttribute('aria-busy');
   });
 
+  it('shows the specific reason when the caller can explain the failure', async () => {
+    const onConfirm = vi.fn().mockRejectedValue(new Error('own account'));
+    render(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        confirmLabel="Switch off"
+        onConfirm={onConfirm}
+        describeError={(e) =>
+          e instanceof Error ? 'You cannot switch off your own account.' : undefined
+        }
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Switch off' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'You cannot switch off your own account.',
+    );
+  });
+
+  it('falls back to the generic message when describeError has nothing to say', async () => {
+    render(
+      <ConfirmDialog
+        open
+        onOpenChange={vi.fn()}
+        confirmLabel="Save"
+        onConfirm={vi.fn().mockRejectedValue(new Error('x'))}
+        describeError={() => undefined}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong');
+  });
+
   it('a destructive dialog cannot be created without naming the item (compile-time rule)', () => {
     // @ts-expect-error itemName is required when destructive is set
     <ConfirmDialog
