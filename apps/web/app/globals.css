@@ -1,0 +1,11 @@
+@import 'tailwindcss';
+@import '@jogylink/ui/tokens.css';
+
+/* Tailwind only generates classes it can see, so point it at the shared components too. */
+@source '../../../packages/ui/src';
+
+@layer base {
+  body {
+    @apply bg-cream font-sans text-body text-charcoal;
+  }
+}

@@ -7,3 +7,5 @@ docs
 *.md
 docker-compose.yml
 .github
+.next
+next-env.d.ts
