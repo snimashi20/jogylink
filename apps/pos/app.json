@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "JogyLink POS",
+    "slug": "jogylink-pos",
+    "scheme": "jogylink-pos",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.jogylink.pos"
+    },
+    "plugins": ["expo-router", "expo-secure-store"]
+  }
+}
