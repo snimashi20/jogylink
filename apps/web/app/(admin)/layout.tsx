@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   return (
     <div>
-      <header className="flex items-center justify-between bg-brand px-6 py-3">
+      <header className="flex items-center justify-between bg-brand px-6 py-3 print:hidden">
         <div className="flex items-center gap-8">
           <span className="text-h2 font-bold tracking-tight text-white uppercase">JogyLink</span>
           {user.role === 'owner' ? <AdminNav /> : null}
