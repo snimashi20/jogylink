@@ -21,6 +21,10 @@ Expo **dev build**, not Expo Go, because the printer and camera need native modu
 whole-number entry, increment/decrement buttons, visible validation, and touch targets sized for
 field use. Its parent owns the committed value and can keep using it while offline.
 
+`src/screens/LoadVanScreen.tsx` is the presentation layer for POS Load Van. Its parent must supply
+route and stock suggestions and persist confirmed quantities through the agreed repository; this
+screen does not access local storage or define a sync contract.
+
 ## The boundary
 
 **M6 owns everything below the UI** — the local SQLite database, the outbox and the sync engine.
