@@ -7,6 +7,9 @@ customer shop in `(shop)`.
 - Fonts: self-hosted from npm (`@fontsource`), so builds need no Google Fonts access.
 - `/dev/components`: the component gallery. It returns 404 in production builds.
 
+M4's reusable C22 side navigation is in `components/side-navigation.tsx`; pass the section links
+and an accessible navigation label. It marks the current route, including nested pages.
+
 ```
 pnpm --filter @jogylink/web dev
 ```
