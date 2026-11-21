@@ -15,6 +15,12 @@ Expo **dev build**, not Expo Go, because the printer and camera need native modu
 | Route List · Sync Status | M6 |
 | Add Return · Partial Return | M7 |
 
+## Shared M4 component
+
+`src/components/QuantityStepper.tsx` provides the POS quantity control (C20). It supports bounded
+whole-number entry, increment/decrement buttons, visible validation, and touch targets sized for
+field use. Its parent owns the committed value and can keep using it while offline.
+
 ## The boundary
 
 **M6 owns everything below the UI** — the local SQLite database, the outbox and the sync engine.
