@@ -5,6 +5,7 @@ The package ships TypeScript source; Next.js compiles it (`transpilePackages`).
 
 | Component     | Guide | Rules the types and tests enforce                                              |
 | ------------- | ----- | ------------------------------------------------------------------------------ |
+| `DataTable`   | C6    | Typed columns, accessible loading/empty states, sorting, and pagination        |
 | `Button`      | C1    | `disabled` needs a `disabledReason`; `loading` locks the button and says why   |
 | `FormField`   | C9    | Label above; errors use icon + text (never colour alone); required is spelled out |
 | `Modal`       | C10   | Cancel left, action right; focus is trapped and returned                       |
