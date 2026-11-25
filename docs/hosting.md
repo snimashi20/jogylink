@@ -28,8 +28,26 @@ Also choose strong passwords for the first owner and worker accounts (`SEED_OWNE
 
 1. Create an account at neon.com and a new project (name `jogylink`). Pick the region closest to Sri Lanka
    that is offered.
-2. Copy the **connection string** (it looks like `postgresql://user:pass@host/db?sslmode=require`).
-   This is your production `DATABASE_URL`. Treat it as a password.
+2. Copy the **connection string** (it looks like `postgresql://user:pass@host/db?sslmode=verify-full`).
+   This is your production `DATABASE_URL`. Treat it as a password: it goes in `.env` (gitignored)
+   or in the host's own variables screen, never in a commit, a PR or a chat message. This repo is
+   public. Whoever sets the project up shares the string with the team privately, once.
+
+### Two hosts, one database
+
+Neon shows two connection strings for the same database. The difference matters:
+
+| String | Host | Use it for |
+|---|---|---|
+| Pooled | contains `-pooler` | the API and the website (`DATABASE_URL`) — Neon's pooler absorbs the many short connections a web app opens |
+| Direct | same host without `-pooler` | migrations and seeding (`DATABASE_URL_DIRECT`) — a transaction pooler does not hold the session state a migration needs |
+
+Set both in `.env`. `db:migrate` uses `DATABASE_URL_DIRECT` when it is set and falls back to
+`DATABASE_URL`, so a plain local Postgres still works with one variable.
+
+Keep `sslmode=verify-full` on both strings. Neon requires TLS either way, but `verify-full` is what
+actually checks the certificate chain **and** the hostname; `require` on its own checks neither and
+leaves the connection open to interception. (`pg` v8 quietly treats them alike — v9 will not.)
 
 ### Create the tables and the first accounts
 
