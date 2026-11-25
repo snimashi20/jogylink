@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { CircleCheck, CircleSlash, Plus } from 'lucide-react';
+import { CircleCheck, CircleSlash, Plus, Route as RouteIcon, Store } from 'lucide-react';
 import {
   RouteListResponseSchema,
   type RouteListResponse,
@@ -167,8 +167,8 @@ export function RoutesView({ initialRoutes }: RoutesViewProps): ReactElement {
         label="Stock and route management"
         heading="M4 management"
         items={[
-          { href: '/shops', label: 'Shops' },
-          { href: '/routes', label: 'Routes' },
+          { href: '/shops', label: 'Shops', icon: <Store className="size-5" /> },
+          { href: '/routes', label: 'Routes', icon: <RouteIcon className="size-5" /> },
         ]}
       />
       <section className="min-w-0 flex-1" aria-labelledby="routes-heading">

@@ -10,3 +10,4 @@ export {
   type DataTableSortValue,
 } from './data-table';
 export { Modal, ConfirmDialog, type ModalProps, type ConfirmDialogProps } from './modal';
+export { QuantityStepper, type QuantityStepperProps } from './quantity-stepper';
