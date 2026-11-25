@@ -31,17 +31,47 @@ screen does not access local storage or define a sync contract.
 Everyone else calls the repository interface and never touches storage directly:
 
 ```ts
-saveSale(sale) · saveReturn(ret) · getRouteShops(routeId)
-getBalance(shopId) · getSyncStatus()
+const repo = createPosRepository(await openDeviceDatabase());
+
+await repo.saveSale(sale); // sale, lines, any cash taken, and the outbox events: all or nothing
+await repo.saveReturn(ret); // M7's return, with its photo path
+await repo.savePayment(payment); // cash or PayHere against a shop's balance
+await repo.getRouteShops(routeId); // visit order, each shop with the balance to show the worker
+await repo.getBalance(shopId); // includes what this device has not managed to send yet
+await repo.getSale(uuid); // for the reprint on A7
+await repo.getProducts(); // the cached price list, wholesale only
+await repo.getSyncStatus(); // { pending, lastSyncedAt }
 ```
 
-Stub implementations are delivered in week 2 so nobody is blocked.
+Nothing here needs a network. Every method is safe to call twice: saving the same uuid again is
+treated as a retry and changes nothing, so a double tap cannot bill a shop twice.
+
+The types the screens pass in (`SaleInput`, `ReturnInput`, `PaymentInput`) live in
+`src/storage/records.ts`. They are the device's own shapes, not the server's — the `sale` and
+`sale_line` tables on the server belong to M5 and `return` to M7, and the sync engine maps
+between them in one place when those APIs land.
+
+Money is **integer cents** and quantities are whole numbers (pieces, or grams for a weight
+product). A sale whose lines do not add up to its total is rejected rather than stored: the
+printed receipt and the shop's balance have to agree.
 
 ## Local storage (M6, `src/storage`)
 
-The device database and the outbox. `openDeviceDatabase()` opens the SQLite file and runs the
-migrations in `schema.ts`; `PRAGMA user_version` records how far it got, so the call is safe on
-every app start. Migrations are append-only — never edit one that has shipped.
+The device database, the outbox and the repository above. `openDeviceDatabase()` opens the SQLite
+file and runs the migrations in `schema.ts`; `PRAGMA user_version` records how far it got, so the
+call is safe on every app start. Migrations are append-only — never edit one that has shipped.
+
+| Device table | What it holds |
+|---|---|
+| `sale`, `sale_line` | Sales made on this device, and what a receipt is reprinted from |
+| `payment` | Cash and PayHere receipts. There is no `paid` column on a sale |
+| `return` | M7's returns, with the path to the evidence photo |
+| `outbox` | The queue of events the server has not confirmed |
+| `shop`, `product` | A read-only cache of server rows, refreshed on each successful sync |
+
+A balance is never stored. It is the server's last reported balance plus every unsynced event on
+the device, which is why `applySyncResult` marks events synced and refreshes the cached balance
+**in the same transaction** — otherwise a sale could be counted on both sides at once.
 
 `Outbox` is the queue of things that happened in the van and the server has not confirmed:
 

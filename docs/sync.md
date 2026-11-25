@@ -55,17 +55,28 @@ the core engineering content of this module, so it is written by hand.
 | Table | Purpose |
 |---|---|
 | `sale`, `sale_line` | Sales created on this device |
+| `payment` | Cash and PayHere receipts against a shop's balance |
 | `return` | Returns captured at the shop, with the photo path |
 | `outbox` | `uuid`, `event_type`, `payload`, `created_at`, `synced_at` |
 | `shop`, `product`, `batch`, `stock` | Read-only cache, refreshed on each successful sync |
 
 Built in `apps/pos/src/storage` — `schema.ts` holds the migrations (append-only, tracked by
-`PRAGMA user_version`), `outbox.ts` the queue. SQLite has no date type, so times are INTEGER
-epoch milliseconds and money is INTEGER cents, matching the server.
+`PRAGMA user_version`), `outbox.ts` the queue, `repository.ts` the interface below. SQLite has no
+date type, so times are INTEGER epoch milliseconds and money is INTEGER cents, matching the
+server. `batch` and `stock` join the cache with M4's end-of-route reconciliation.
 
-`outbox` so far: the table, the append (`ON CONFLICT (uuid) DO NOTHING`), the oldest-first
-pending query, confirmation by uuid, and pruning of confirmed events. The sale and return tables
-land with M5's billing screens; the upload itself is the sync engine.
+A sale deliberately has **no `paid` column**. Cash handed over at the shop is a payment event like
+any other, so a balance is always sales minus payments minus return credits, with exactly one way
+to count each thing. `saveSale` takes an optional payment and writes both in one transaction, so
+the bill and the cash can never come apart.
+
+Balances are derived, never stored: the balance the server last reported, plus every event this
+device has not managed to send. `applySyncResult` therefore marks events synced and refreshes the
+cached balance **in one transaction** — if it did not, an event could be counted as both pending
+and included in the server's figure.
+
+Still to come: the upload itself (the sync engine and its `/sync` endpoint), and the device's
+`batch`/`stock` cache.
 
 ## Testing
 
@@ -80,17 +91,30 @@ The device half is proved the same way, against a real SQLite database through `
 rather than a mock, so the primary key and the `ON CONFLICT` clause are genuinely exercised:
 `apps/pos/test/outbox.test.ts` covers duplicate appends, an upload that dies before the reply
 arrives, a partially accepted batch, a replayed reply, and batches larger than one statement.
+`repository.test.ts` adds the money rules: a sale saved twice, a bill whose lines do not add up,
+a write that fails halfway leaving nothing behind, and a confirmed sale counted once rather than
+twice.
 
 ## Interface offered to the other POS modules
 
 M4, M5 and M7 build POS screens but never touch the device database directly. They call:
 
 ```ts
-saveSale(sale: Sale): Promise<void>
-saveReturn(ret: Return): Promise<void>
-getRouteShops(routeId: string): Promise<Shop[]>
-getBalance(shopId: string): Promise<Money>
-getSyncStatus(): { pending: number; lastSyncedAt: Date | null }
+saveSale(sale: SaleInput): Promise<void>
+saveReturn(ret: ReturnInput): Promise<void>
+savePayment(payment: PaymentInput): Promise<void>
+getRouteShops(routeId: string): Promise<RouteShop[]>
+getBalance(shopId: string): Promise<Cents>
+getSale(uuid: string): Promise<StoredSale | null> // the reprint on A7
+getProducts(): Promise<CachedProduct[]> // the cached price list, wholesale only
+getSyncStatus(): Promise<{ pending: number; lastSyncedAt: Date | null }>
+applySyncResult(result: SyncResult): Promise<void> // the sync engine's own entry point
 ```
 
-Delivered with stub implementations in **week 2**, so the other three are never blocked.
+`PosRepository` in `apps/pos/src/storage/repository.ts`, built on a real database rather than
+stubs. The input types are the **device's** shapes (`records.ts`), not the server's: the server's
+`sale` and `sale_line` belong to M5 and `return` to M7, so the sync engine maps between the two in
+the one place that talks to the server. Screens never change when those APIs land.
+
+Every method is safe to call twice. Saving a uuid that is already stored changes nothing, so a
+double tap on a slow screen cannot bill a shop twice.

@@ -6,6 +6,8 @@
  * their own driver.
  */
 export * from './types';
+export * from './records';
 export * from './schema';
 export * from './outbox';
+export * from './repository';
 export * from './device';
