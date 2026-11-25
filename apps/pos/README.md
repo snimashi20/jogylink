@@ -37,6 +37,33 @@ getBalance(shopId) · getSyncStatus()
 
 Stub implementations are delivered in week 2 so nobody is blocked.
 
+## Local storage (M6, `src/storage`)
+
+The device database and the outbox. `openDeviceDatabase()` opens the SQLite file and runs the
+migrations in `schema.ts`; `PRAGMA user_version` records how far it got, so the call is safe on
+every app start. Migrations are append-only — never edit one that has shipped.
+
+`Outbox` is the queue of things that happened in the van and the server has not confirmed:
+
+```ts
+append(event) // false if that uuid was already queued — a retry, not an error
+pending(limit) // the next events to upload, oldest first
+markSynced(uuids) // only ever the uuids the server named as accepted
+pendingCount() · status() // { pending, lastSyncedAt } for the sync screen and banner
+pruneSynced(before) // drops old confirmed events; never touches an unconfirmed one
+```
+
+Call `append` inside the same `db.transaction` as the rows it describes, so a sale can never
+exist on the device without its outbox entry.
+
+Everything except `device.ts` is free of React Native, and talks to SQLite through the
+`SqliteDriver` port. The tests therefore run on a real SQLite database through `node:sqlite`
+(`test/memory-sqlite.ts`) — actual SQL, no phone, nothing to install:
+
+```bash
+pnpm --filter @jogylink/pos test
+```
+
 ## Non-negotiables
 
 - Every screen renders and functions with **no network**.

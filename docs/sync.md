@@ -59,6 +59,14 @@ the core engineering content of this module, so it is written by hand.
 | `outbox` | `uuid`, `event_type`, `payload`, `created_at`, `synced_at` |
 | `shop`, `product`, `batch`, `stock` | Read-only cache, refreshed on each successful sync |
 
+Built in `apps/pos/src/storage` — `schema.ts` holds the migrations (append-only, tracked by
+`PRAGMA user_version`), `outbox.ts` the queue. SQLite has no date type, so times are INTEGER
+epoch milliseconds and money is INTEGER cents, matching the server.
+
+`outbox` so far: the table, the append (`ON CONFLICT (uuid) DO NOTHING`), the oldest-first
+pending query, confirmation by uuid, and pruning of confirmed events. The sale and return tables
+land with M5's billing screens; the upload itself is the sync engine.
+
 ## Testing
 
 Correctness is proved with **Testcontainers** against a real PostgreSQL instance:
@@ -67,6 +75,11 @@ Correctness is proved with **Testcontainers** against a real PostgreSQL instance
 2. Publish the **same batch twice**; assert no duplicates.
 3. Kill the connection mid-upload; reconnect; assert nothing is lost and nothing is duplicated.
 4. Create a sale offline and a conflicting admin edit online; assert the documented resolution.
+
+The device half is proved the same way, against a real SQLite database through `node:sqlite`
+rather than a mock, so the primary key and the `ON CONFLICT` clause are genuinely exercised:
+`apps/pos/test/outbox.test.ts` covers duplicate appends, an upload that dies before the reply
+arrives, a partially accepted batch, a replayed reply, and batches larger than one statement.
 
 ## Interface offered to the other POS modules
 
