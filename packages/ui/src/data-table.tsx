@@ -39,6 +39,8 @@ export type DataTableProps<T> = {
   emptyMessage?: string;
   /** Defaults to 10 for local pagination. Ignored when controlled pagination is supplied. */
   pageSize?: number;
+  /** Adds the guide's left red marker to the matching row in both layouts. */
+  selectedRowKey?: string;
   pagination?: DataTablePagination;
   /** Supplying onSortChange makes sorting controlled and delegates sorting to the caller. */
   sort?: DataTableSort | null;
@@ -66,6 +68,7 @@ export function DataTable<T>({
   loading = false,
   emptyMessage = 'No records to show.',
   pageSize = 10,
+  selectedRowKey,
   pagination,
   sort,
   onSortChange,
@@ -124,10 +127,10 @@ export function DataTable<T>({
 
   return (
     <section className="flex min-w-0 flex-col gap-3" aria-busy={loading}>
-      <div className="overflow-x-auto rounded-card border border-sand bg-white">
+      <div className="hidden overflow-x-auto rounded-card border border-sand bg-white md:block">
         <table className="min-w-full border-collapse text-left text-body">
           <caption className="sr-only">{caption}</caption>
-          <thead className="bg-cream text-charcoal">
+          <thead className="sticky top-0 z-10 bg-charcoal text-white">
             <tr>
               {columns.map((column) => {
                 const direction =
@@ -183,12 +186,23 @@ export function DataTable<T>({
                 </td>
               </tr>
             ) : (
-              visibleRows.map((row) => (
-                <tr key={getRowKey(row)} className="hover:bg-cream/60">
-                  {columns.map((column) => (
+              visibleRows.map((row, index) => (
+                <tr
+                  key={getRowKey(row)}
+                  className={
+                    index % 2 === 1 ? 'bg-cream hover:bg-brand/5' : 'bg-white hover:bg-brand/5'
+                  }
+                >
+                  {columns.map((column, columnIndex) => (
                     <td
                       key={column.id}
-                      className={`px-4 py-3 text-charcoal ${column.className ?? ''}`}
+                      className={[
+                        'px-4 py-3 text-charcoal',
+                        selectedRowKey === getRowKey(row) && columnIndex === 0
+                          ? 'border-l-[3px] border-brand'
+                          : '',
+                        column.className ?? '',
+                      ].join(' ')}
                     >
                       {column.cell(row)}
                     </td>
@@ -198,6 +212,50 @@ export function DataTable<T>({
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden">
+        {loading ? (
+          <div
+            role="status"
+            className="rounded-card border border-sand bg-white px-4 py-10 text-center text-stone"
+          >
+            <LoaderCircle className="mr-2 inline h-5 w-5 animate-spin" aria-hidden="true" />
+            Loading {caption.toLowerCase()}…
+          </div>
+        ) : visibleRows.length === 0 ? (
+          <p
+            role="status"
+            className="rounded-card border border-sand bg-white px-4 py-10 text-center text-stone"
+          >
+            {emptyMessage}
+          </p>
+        ) : (
+          <ul aria-label={caption} className="flex flex-col gap-3">
+            {visibleRows.map((row) => (
+              <li
+                key={getRowKey(row)}
+                className={[
+                  'rounded-card border border-sand bg-white p-4 shadow-level-1',
+                  selectedRowKey === getRowKey(row) ? 'border-l-[3px] border-l-brand' : '',
+                ].join(' ')}
+              >
+                <dl className="flex flex-col gap-3">
+                  {columns.map((column) => (
+                    <div key={column.id} className="flex items-start justify-between gap-4">
+                      <dt className="shrink-0 text-caption font-semibold text-stone">
+                        {column.header}
+                      </dt>
+                      <dd className="min-w-0 text-right text-body text-charcoal">
+                        {column.cell(row)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {!loading && totalRows > 0 ? (
