@@ -91,18 +91,21 @@ pnpm --filter @jogylink/db db:seed            # owner + worker users, settings, 
 pnpm test                                     # unit tests (database tests run in-process, no Docker)
 ```
 
-Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md): branch from `develop`, PR into `develop`, never push to `main`.
+Before opening a pull request, read [CONTRIBUTING.md](CONTRIBUTING.md): branch from `main`, PR into `main`, never push to `main` or `final` directly.
 
 ## How we work
 
-Branch from `develop`, open a pull request back into `develop`, get your review partner to
-approve, then merge. **Never push to `main`.**
+Branch from `main`, open a pull request back into `main`, get your review partner to approve,
+then **Squash and merge**. `final` is the verified-release branch: only `main` is promoted into
+it, and only after a release has been tested. **Never push directly to `main` or `final`.**
 
 ```bash
-git checkout develop
+git checkout main
 git pull
 git checkout -b yourname/m6-offline-sync
 ```
+
+Every pull request into `main` runs CI (format, typecheck, tests, build) and needs one approval.
 
 Full rules and the review-partner ring: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
