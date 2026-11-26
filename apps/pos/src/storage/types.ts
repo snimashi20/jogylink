@@ -59,8 +59,25 @@ export interface PendingEvent extends OutboxEvent {
 
 /** What the sync-status screen, the offline banner and the sign-out guard all read. */
 export interface SyncStatus {
-  /** Events the server has not confirmed yet. */
+  /** Events waiting to be sent. Still counting down to zero on a good day. */
   pending: number;
+  /**
+   * Events the server has refused. They are still on the device, and no amount of waiting will
+   * clear them: a person has to look. Never included in `pending`, so a bad event cannot make
+   * the queue look stuck forever, and never dropped either.
+   */
+  needsAttention: number;
   /** When the server last confirmed an event, or null if it never has. */
   lastSyncedAt: Date | null;
+}
+
+/** An event the server refused, as the sync status screen lists it. */
+export interface RejectedEvent {
+  uuid: string;
+  type: OutboxEventType;
+  /** What the server said. Shown to the worker, so it is kept verbatim. */
+  reason: string;
+  attempts: number;
+  createdAt: Date;
+  rejectedAt: Date;
 }

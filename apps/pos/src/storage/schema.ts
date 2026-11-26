@@ -117,6 +117,29 @@ export const LOCAL_MIGRATIONS: readonly string[] = [
      active                INTEGER NOT NULL,
      refreshed_at          INTEGER NOT NULL
    );`,
+
+  /*
+   * 3 — what happened when we tried to send.
+   *
+   * `attempts`, `last_attempt_at` and `last_error` are kept so the sync status screen can show
+   * the worker why nothing is moving, and survive a restart.
+   *
+   * `rejected_at` is for an event the server refuses outright — bad data it will never accept.
+   * Such an event leaves the pending queue, because retrying it forever would block every sale
+   * behind it, but it is NEVER deleted: it is a real sale that exists nowhere else, and it is
+   * listed for a person to deal with. Only an explicit action puts it back in the queue.
+   */
+  `ALTER TABLE outbox ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE outbox ADD COLUMN last_attempt_at INTEGER;
+   ALTER TABLE outbox ADD COLUMN last_error TEXT;
+   ALTER TABLE outbox ADD COLUMN rejected_at INTEGER;
+   ALTER TABLE outbox ADD COLUMN rejection_reason TEXT;
+
+   DROP INDEX IF EXISTS outbox_pending;
+   CREATE INDEX IF NOT EXISTS outbox_pending
+     ON outbox (created_at) WHERE synced_at IS NULL AND rejected_at IS NULL;
+   CREATE INDEX IF NOT EXISTS outbox_rejected
+     ON outbox (rejected_at) WHERE rejected_at IS NOT NULL;`,
 ];
 
 /** The version a freshly migrated device database is at. */

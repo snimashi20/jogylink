@@ -70,7 +70,11 @@ describe('device outbox', () => {
     expect(await outbox.markSynced(['a'])).toBe(1);
 
     expect((await outbox.pending()).map((e) => e.uuid)).toEqual(['b']);
-    expect(await outbox.status()).toEqual({ pending: 1, lastSyncedAt: time.at(60_000) });
+    expect(await outbox.status()).toEqual({
+      pending: 1,
+      needsAttention: 0,
+      lastSyncedAt: time.at(60_000),
+    });
   });
 
   it('keeps confirmed events on the device, so a receipt can still be reprinted', async () => {
@@ -143,7 +147,7 @@ describe('device outbox', () => {
   });
 
   it('reports an empty queue before anything has ever synced', async () => {
-    expect(await outbox.status()).toEqual({ pending: 0, lastSyncedAt: null });
+    expect(await outbox.status()).toEqual({ pending: 0, needsAttention: 0, lastSyncedAt: null });
     expect(await outbox.pending()).toEqual([]);
   });
 

@@ -3,6 +3,7 @@ import {
   type OutboxEvent,
   type OutboxEventType,
   type PendingEvent,
+  type RejectedEvent,
   type SqliteDriver,
   type SqlValue,
   type SyncStatus,
@@ -75,7 +76,7 @@ export class Outbox {
     }>(
       `SELECT uuid, event_type, payload, created_at
          FROM outbox
-        WHERE synced_at IS NULL
+        WHERE synced_at IS NULL AND rejected_at IS NULL
         ORDER BY created_at, rowid
         LIMIT ?;`,
       [limit],
@@ -89,12 +90,130 @@ export class Outbox {
     }));
   }
 
-  /** How many events the server has not confirmed. Read by sync status and the sign-out guard. */
+  /** How many events are still waiting to be sent. Refused events are counted separately. */
   async pendingCount(): Promise<number> {
+    const [row] = await this.db.all<{ n: number }>(
+      'SELECT COUNT(*) AS n FROM outbox WHERE synced_at IS NULL AND rejected_at IS NULL;',
+    );
+    return row?.n ?? 0;
+  }
+
+  /**
+   * Everything this device has not got onto the server, refused events included. This is the
+   * number the sign-out guard cares about: signing out with any of these is losing a sale.
+   */
+  async unsentCount(): Promise<number> {
     const [row] = await this.db.all<{ n: number }>(
       'SELECT COUNT(*) AS n FROM outbox WHERE synced_at IS NULL;',
     );
     return row?.n ?? 0;
+  }
+
+  /**
+   * Notes that we tried to send these and it did not work. Keeps the reason, so the sync screen
+   * can say what is wrong after a restart instead of just "pending".
+   */
+  async recordAttempt(uuids: readonly string[], error: string | null = null): Promise<void> {
+    if (uuids.length === 0) return;
+    const at = this.now();
+
+    for (const chunk of chunksOf(dedupe(uuids), MAX_PARAMS_PER_STATEMENT)) {
+      const placeholders = chunk.map(() => '?').join(', ');
+      await this.db.run(
+        `UPDATE outbox
+            SET attempts        = attempts + 1,
+                last_attempt_at = ?,
+                last_error      = ?
+          WHERE synced_at IS NULL
+            AND uuid IN (${placeholders});`,
+        [at, error, ...chunk] as SqlValue[],
+      );
+    }
+  }
+
+  /**
+   * Records that the server refuses these events outright, with its reason.
+   *
+   * They leave the pending queue so they cannot block the sales behind them, and they stay on
+   * the device for a person to look at. Nothing is deleted. An event the server has already
+   * accepted is never marked refused, whatever a later reply says.
+   */
+  async recordRejections(rejections: readonly { uuid: string; reason: string }[]): Promise<number> {
+    let marked = 0;
+    const at = this.now();
+
+    for (const rejection of rejections) {
+      const result = await this.db.run(
+        `UPDATE outbox
+            SET rejected_at      = ?,
+                rejection_reason = ?
+          WHERE uuid = ? AND synced_at IS NULL AND rejected_at IS NULL;`,
+        [at, rejection.reason, rejection.uuid],
+      );
+      marked += result.changes;
+    }
+
+    return marked;
+  }
+
+  /** The refused events, newest first, for the sync status screen. */
+  async rejected(limit = 50): Promise<RejectedEvent[]> {
+    if (limit <= 0) return [];
+
+    const rows = await this.db.all<{
+      uuid: string;
+      event_type: string;
+      rejection_reason: string | null;
+      attempts: number;
+      created_at: number;
+      rejected_at: number;
+    }>(
+      `SELECT uuid, event_type, rejection_reason, attempts, created_at, rejected_at
+         FROM outbox
+        WHERE rejected_at IS NOT NULL AND synced_at IS NULL
+        ORDER BY rejected_at DESC, rowid DESC
+        LIMIT ?;`,
+      [limit],
+    );
+
+    return rows.map((row) => ({
+      uuid: row.uuid,
+      type: readEventType(row.uuid, row.event_type),
+      reason: row.rejection_reason ?? 'The server did not say why.',
+      attempts: row.attempts,
+      createdAt: new Date(row.created_at),
+      rejectedAt: new Date(row.rejected_at),
+    }));
+  }
+
+  /**
+   * Puts refused events back in the queue — after the worker fixed something, or the owner
+   * fixed the server. Only ever on an explicit action, never automatically, because an event
+   * that was refused once will usually be refused again.
+   */
+  async clearRejections(uuids?: readonly string[]): Promise<number> {
+    const clear = `SET rejected_at = NULL, rejection_reason = NULL, last_error = NULL`;
+
+    if (uuids === undefined) {
+      const result = await this.db.run(
+        `UPDATE outbox ${clear} WHERE rejected_at IS NOT NULL AND synced_at IS NULL;`,
+      );
+      return result.changes;
+    }
+    if (uuids.length === 0) return 0;
+
+    let cleared = 0;
+    for (const chunk of chunksOf(dedupe(uuids), MAX_PARAMS_PER_STATEMENT)) {
+      const placeholders = chunk.map(() => '?').join(', ');
+      const result = await this.db.run(
+        `UPDATE outbox ${clear}
+          WHERE rejected_at IS NOT NULL AND synced_at IS NULL
+            AND uuid IN (${placeholders});`,
+        [...chunk],
+      );
+      cleared += result.changes;
+    }
+    return cleared;
   }
 
   /**
@@ -133,13 +252,20 @@ export class Outbox {
    * does not move it — the sync engine will record its own last-contacted time when it lands.
    */
   async status(): Promise<SyncStatus> {
-    const [row] = await this.db.all<{ pending: number; last: number | null }>(
-      `SELECT COUNT(CASE WHEN synced_at IS NULL THEN 1 END) AS pending,
-              MAX(synced_at)                                AS last
+    const [row] = await this.db.all<{
+      pending: number;
+      needs_attention: number;
+      last: number | null;
+    }>(
+      `SELECT COUNT(CASE WHEN synced_at IS NULL AND rejected_at IS NULL THEN 1 END) AS pending,
+              COUNT(CASE WHEN synced_at IS NULL AND rejected_at IS NOT NULL THEN 1 END)
+                AS needs_attention,
+              MAX(synced_at) AS last
          FROM outbox;`,
     );
     return {
       pending: row?.pending ?? 0,
+      needsAttention: row?.needs_attention ?? 0,
       lastSyncedAt: row?.last == null ? null : new Date(row.last),
     };
   }

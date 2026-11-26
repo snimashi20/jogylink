@@ -418,15 +418,24 @@ describe('POS repository', () => {
 
   describe('sync status', () => {
     it('reports what is still unsent and when the server last confirmed anything', async () => {
-      expect(await repo.getSyncStatus()).toEqual({ pending: 0, lastSyncedAt: null });
+      expect(await repo.getSyncStatus()).toEqual({
+        pending: 0,
+        needsAttention: 0,
+        lastSyncedAt: null,
+      });
 
       await repo.saveSale(sale());
-      expect(await repo.getSyncStatus()).toEqual({ pending: 1, lastSyncedAt: null });
+      expect(await repo.getSyncStatus()).toEqual({
+        pending: 1,
+        needsAttention: 0,
+        lastSyncedAt: null,
+      });
 
       time.advance(30_000);
       await repo.applySyncResult({ acceptedUuids: ['sale-1'] });
       expect(await repo.getSyncStatus()).toEqual({
         pending: 0,
+        needsAttention: 0,
         lastSyncedAt: new Date(START + 30_000),
       });
     });

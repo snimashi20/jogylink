@@ -36,6 +36,40 @@ POS device                               Server
 Nothing is deleted from the outbox until the server confirms the UUID. A crash mid-upload simply
 means the events are sent again and ignored the second time.
 
+## The engine
+
+`apps/pos/src/sync/engine.ts`. It is given a `SyncApi` and a `ConnectivityMonitor` rather than
+reaching for HTTP or the radio itself, so the rules below are tested without a network or a phone.
+
+| Situation | What the engine does |
+|---|---|
+| No signal | Does not call the server. Phase `offline`; the queue is untouched |
+| Signal returns | Uploads by itself — that is the moment a morning's sales can finally go up |
+| Upload fails (no route, timeout, 5xx, unreadable reply) | Records the attempt and the error, keeps everything queued, backs off 5s → 15s → 60s → 5min |
+| Server accepts some of a batch | Marks exactly those; the rest stay queued for the next run |
+| Server refuses an event | Quarantines it with its reason: out of the queue, still on the device, listed for a person. Never retried automatically, never deleted |
+| Three failures in a row | Sends one event per request, so a single bad event cannot block the sales behind it |
+| Server echoes a uuid it already had | Counts as no progress. Progress is measured from rows the database actually changed, never from the length of `accepted` |
+| Two callers sync at once | The second joins the run in progress; events are never in two requests at once |
+
+**Nothing is ever deleted** — not on a 400, not on a 500, not after a hundred attempts. The
+reference implementation this replaces deleted pending transactions on 400, 422 and 500, which
+turns a server bug into lost money; see [m6-code-reuse.md](m6-code-reuse.md).
+
+`attempts`, `last_attempt_at` and `last_error` live in the outbox, so after a restart the sync
+status screen can still say why nothing is moving.
+
+### Money on the sync wire is integer cents
+
+Everywhere else in `@jogylink/shared`, money on the wire is a plain rupee number with at most two
+decimals (`MoneySchema`). `packages/shared/src/sync.ts` deliberately differs: every amount is an
+integer number of cents, and every field name says so.
+
+This is the one path where a sale exists only on a phone until it arrives, and integer cents
+cannot be rounded wrong by a parser, a JSON library or a float — so the bill printed for the shop
+and the row that lands in PostgreSQL are the same number by construction. It is a documented
+deviation for this endpoint only; no existing schema or endpoint changes.
+
 ## Why not CRDTs
 
 There is **one van, one device, one worker**. Genuine concurrent writes to the same record are
@@ -75,8 +109,14 @@ device has not managed to send. `applySyncResult` therefore marks events synced 
 cached balance **in one transaction** — if it did not, an event could be counted as both pending
 and included in the server's figure.
 
-Still to come: the upload itself (the sync engine and its `/sync` endpoint), and the device's
-`batch`/`stock` cache.
+Still to come: the **server side of `/sync`**, and the device's `batch`/`stock` cache.
+
+The endpoint is blocked, not forgotten. Ingesting a sale means inserting into the server's `sale`
+and `sale_line` tables, which `packages/db/src/schema/index.ts` assigns to **M5** and which do not
+exist yet; `return` belongs to M7 the same way. The wire contract both sides will use is already
+written and frozen in `packages/shared/src/sync.ts`, so the device half is finished and testable
+against it, and the handler can be built the day M5's tables land. Nothing in the device code
+changes when it does.
 
 ## Testing
 

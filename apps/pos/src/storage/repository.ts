@@ -12,7 +12,7 @@ import {
   type StoredSaleLine,
   type SyncResult,
 } from './records';
-import type { SqliteDriver, SqlValue, SyncStatus } from './types';
+import type { RejectedEvent, SqliteDriver, SqlValue, SyncStatus } from './types';
 
 /**
  * What every POS screen uses, and the only way M4, M5 and M7 touch storage.
@@ -37,8 +37,20 @@ export interface PosRepository {
   getProducts(): Promise<CachedProduct[]>;
   /** What the sync status screen, the banner and the sign-out guard read. */
   getSyncStatus(): Promise<SyncStatus>;
-  /** Applies a successful sync: confirmations and fresh cached rows, in one transaction. */
-  applySyncResult(result: SyncResult): Promise<void>;
+  /** Everything not yet on the server, refused events included. Blocks signing out. */
+  getUnsentCount(): Promise<number>;
+  /** The events the server refused, for the sync status screen. Never auto-retried. */
+  getRejectedEvents(limit?: number): Promise<RejectedEvent[]>;
+  /** Puts refused events back in the queue. Only ever from an explicit action by a person. */
+  retryRejected(uuids?: readonly string[]): Promise<number>;
+  /**
+   * Applies a successful sync: confirmations and fresh cached rows, in one transaction.
+   *
+   * Returns how many events this actually moved from pending to synced, which is not the length
+   * of `acceptedUuids`: a server may name an event it already confirmed, or one this device has
+   * never heard of. The sync engine needs the real number to know whether it is making progress.
+   */
+  applySyncResult(result: SyncResult): Promise<{ confirmed: number }>;
 }
 
 /**
@@ -270,18 +282,32 @@ export class SqlitePosRepository implements PosRepository {
     return this.outbox.status();
   }
 
+  getUnsentCount(): Promise<number> {
+    return this.outbox.unsentCount();
+  }
+
+  getRejectedEvents(limit?: number): Promise<RejectedEvent[]> {
+    return this.outbox.rejected(limit);
+  }
+
+  retryRejected(uuids?: readonly string[]): Promise<number> {
+    return this.outbox.clearRejections(uuids);
+  }
+
   /**
    * Confirmations and fresh cached rows land together or not at all. That is what keeps a
    * balance honest: the moment an event stops counting as pending, the cached balance that now
    * includes it is already in place.
    */
-  async applySyncResult(result: SyncResult): Promise<void> {
-    await this.db.transaction(async () => {
-      await this.outbox.markSynced(result.acceptedUuids);
+  async applySyncResult(result: SyncResult): Promise<{ confirmed: number }> {
+    return this.db.transaction(async () => {
+      const confirmed = await this.outbox.markSynced(result.acceptedUuids);
 
       const refreshedAt = this.now();
       for (const shop of result.shops ?? []) await this.cacheShop(shop, refreshedAt);
       for (const product of result.products ?? []) await this.cacheProduct(product, refreshedAt);
+
+      return { confirmed };
     });
   }
 

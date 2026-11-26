@@ -73,6 +73,24 @@ A balance is never stored. It is the server's last reported balance plus every u
 the device, which is why `applySyncResult` marks events synced and refreshes the cached balance
 **in the same transaction** — otherwise a sale could be counted on both sides at once.
 
+## The sync engine (M6, `src/sync`)
+
+```ts
+const engine = new SyncEngine({ repository, outbox, api: createSyncApi(), connectivity: createNetInfoMonitor() });
+await engine.start(); // uploads now, and again whenever signal returns
+engine.subscribe(() => render(engine.getState())); // for the sync screen and the offline banner
+await engine.syncNow(); // the manual retry button
+```
+
+**Nothing is ever deleted** — not on a 400, not on a 500, not after a hundred attempts. A failed
+upload leaves the queue exactly as it was and backs off. An event the server explicitly refuses is
+quarantined with its reason: out of the queue so it blocks nothing, still on the device, and
+listed by `getRejectedEvents()` for a person. Only `retryRejected()` puts it back.
+
+The engine takes a `SyncApi` and a `ConnectivityMonitor` rather than reaching for HTTP or the
+radio itself, so every rule above is tested in plain Node — see `test/sync-engine.test.ts` and the
+table in [docs/sync.md](../../docs/sync.md).
+
 `Outbox` is the queue of things that happened in the van and the server has not confirmed:
 
 ```ts
