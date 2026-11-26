@@ -116,6 +116,7 @@ Full rules and the review-partner ring: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 - [Work division](docs/work-division.md) — what each of the eight members owns
 - [Problem map](docs/problem-map.md) — the 12 problems → modules → how completely each is solved
 - [Sync design](docs/sync.md) — the offline outbox pattern (M6)
+- [Credit ledger](docs/credit-ledger.md) — the event-sourced ledger, ageing and the receipt arithmetic (M6)
 - [Rollout](docs/rollout.md) — three stages and the adoption barriers
 - [Stakeholders](docs/stakeholders.md) — win-win for every party
 - [Technology](docs/technology.md) — choice per layer and what was rejected

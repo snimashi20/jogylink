@@ -25,6 +25,13 @@ export const SETTING_DEFINITIONS = {
   /** Supplier-claim triggers (M7). PLACEHOLDER defaults: the owner/M7 should confirm. */
   claim_value_trigger: { default: 5000, schema: z.number().min(0) },
   claim_age_trigger_days: { default: 14, schema: z.number().int().min(1) },
+
+  /**
+   * How many days after a credit sale the money is due (M6). Drives the due date on a receipt,
+   * the overdue count on the dashboard and the ageing report.
+   * PLACEHOLDER default: the owner should confirm the real trade term.
+   */
+  credit_term_days: { default: 30, schema: z.number().int().min(0).max(365) },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;
