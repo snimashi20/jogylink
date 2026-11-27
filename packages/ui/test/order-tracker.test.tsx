@@ -27,17 +27,26 @@ describe('OrderTracker (C19)', () => {
     expect(list[4]).not.toHaveAttribute('aria-current');
   });
 
+  it('shows the current step in Bucket Red and writes it out (never colour alone)', () => {
+    render(<OrderTracker steps={steps} currentKey="handed_to_courier" />);
+    const circle = items()[2]!.querySelector('[aria-hidden="true"].rounded-full');
+    expect(circle).toHaveClass('bg-brand');
+    expect(screen.getByText('Current:').parentElement).toHaveTextContent('Current: With courier');
+  });
+
   it('shows every step as done once the order reaches the last step', () => {
     render(<OrderTracker steps={steps} currentKey="delivered" />);
     for (const item of items()) {
       expect(item).toHaveTextContent('(done)');
       expect(item).not.toHaveAttribute('aria-current');
     }
+    expect(screen.getByText('Completed:').parentElement).toHaveTextContent('Completed: Delivered');
   });
 
   it('shows the time under a step when given', () => {
     render(<OrderTracker steps={steps} currentKey="packed" />);
     expect(screen.getByText('27 Nov, 10:30')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Order progress' })).toHaveClass('flex');
   });
 
   it('shows an exception as a banner with text, not colour alone', () => {
