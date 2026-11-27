@@ -5,6 +5,8 @@ import {
   WebOrderStatusUpdateSchema,
   WebOrderTrackQuerySchema,
   canMoveWebOrder,
+  initialPaymentStatus,
+  isPaymentStatusValidFor,
 } from '../src';
 
 const PRODUCT_A = '11111111-1111-4111-8111-111111111111';
@@ -40,6 +42,14 @@ describe('web order status engine', () => {
     expect(canMoveWebOrder('packed', 'cancelled')).toBe(true);
     expect(canMoveWebOrder('in_transit', 'cancelled')).toBe(false);
     expect(canMoveWebOrder('in_transit', 'returned')).toBe(true);
+  });
+
+  it('lets a failed delivery be re-attempted or returned, but not cancelled', () => {
+    expect(canMoveWebOrder('in_transit', 'delivery_failed')).toBe(true);
+    expect(canMoveWebOrder('delivery_failed', 'in_transit')).toBe(true);
+    expect(canMoveWebOrder('delivery_failed', 'returned')).toBe(true);
+    expect(canMoveWebOrder('delivery_failed', 'cancelled')).toBe(false);
+    expect(canMoveWebOrder('delivery_failed', 'delivered')).toBe(false);
   });
 
   it('treats delivered, returned and cancelled as final', () => {
@@ -108,16 +118,40 @@ describe('WebOrderStatusUpdateSchema', () => {
     ).toBe(true);
     expect(WebOrderStatusUpdateSchema.safeParse({ status: 'confirmed' }).success).toBe(true);
   });
+
+  it('needs a reason to cancel or to record a failed delivery', () => {
+    expect(WebOrderStatusUpdateSchema.safeParse({ status: 'cancelled' }).success).toBe(false);
+    expect(WebOrderStatusUpdateSchema.safeParse({ status: 'delivery_failed' }).success).toBe(false);
+    expect(
+      WebOrderStatusUpdateSchema.safeParse({ status: 'cancelled', reason: 'Customer asked' })
+        .success,
+    ).toBe(true);
+  });
+});
+
+describe('payment status (separate from order status)', () => {
+  it('starts card payments as pending and COD as awaiting collection', () => {
+    expect(initialPaymentStatus('card')).toBe('pending');
+    expect(initialPaymentStatus('cod')).toBe('awaiting_collection');
+  });
+
+  it('only allows statuses that belong to the payment method', () => {
+    expect(isPaymentStatusValidFor('card', 'settled')).toBe(true);
+    expect(isPaymentStatusValidFor('card', 'remitted')).toBe(false);
+    expect(isPaymentStatusValidFor('cod', 'remitted')).toBe(true);
+    expect(isPaymentStatusValidFor('cod', 'authorised')).toBe(false);
+  });
 });
 
 describe('WebOrderTrackQuerySchema (Track My Order)', () => {
-  it('needs a well-formed order number and the phone used at checkout', () => {
+  it('accepts a long random tracking token from the SMS link', () => {
     expect(
-      WebOrderTrackQuerySchema.safeParse({ orderNumber: 'WO-2026-00042', phone: '0771234567' })
-        .success,
+      WebOrderTrackQuerySchema.safeParse({ token: 'k3J9xQ2mZr7Lw1Vt8Bn4Yc6Hd0Fs5Ga2Pe' }).success,
     ).toBe(true);
-    expect(
-      WebOrderTrackQuerySchema.safeParse({ orderNumber: '42', phone: '0771234567' }).success,
-    ).toBe(false);
+  });
+
+  it('rejects an order number, because order-number-only lookup is not allowed', () => {
+    expect(WebOrderTrackQuerySchema.safeParse({ token: 'WO-2026-00042' }).success).toBe(false);
+    expect(WebOrderTrackQuerySchema.safeParse({ token: 'short' }).success).toBe(false);
   });
 });

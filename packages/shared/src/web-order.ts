@@ -16,6 +16,7 @@ export const WEB_ORDER_STATUSES = [
   'handed_to_courier',
   'in_transit',
   'delivered',
+  'delivery_failed',
   'returned',
   'cancelled',
 ] as const;
@@ -23,17 +24,21 @@ export const WebOrderStatusSchema = z.enum(WEB_ORDER_STATUSES);
 export type WebOrderStatus = z.infer<typeof WebOrderStatusSchema>;
 
 /**
- * The only moves an order may make.
+ * The only moves an order may make (Solution Design V2, section 5).
  * New -> Confirmed -> Packed -> Handed to Courier -> In Transit -> Delivered.
- * Before the courier has it, the owner can cancel. After, it can only come back as Returned.
+ * Exceptions:
+ *   Cancelled        only before the courier has the parcel (the stock reservation is released).
+ *   Delivery Failed  the courier could not deliver; it can be re-attempted or come back as Returned.
+ *   Returned         the parcel came back after dispatch (goes through the returns workflow).
  * Delivered, Returned and Cancelled are final.
  */
 export const WEB_ORDER_TRANSITIONS: Record<WebOrderStatus, readonly WebOrderStatus[]> = {
   new: ['confirmed', 'cancelled'],
   confirmed: ['packed', 'cancelled'],
   packed: ['handed_to_courier', 'cancelled'],
-  handed_to_courier: ['in_transit', 'returned'],
-  in_transit: ['delivered', 'returned'],
+  handed_to_courier: ['in_transit', 'delivery_failed', 'returned'],
+  in_transit: ['delivered', 'delivery_failed', 'returned'],
+  delivery_failed: ['in_transit', 'returned'],
   delivered: [],
   returned: [],
   cancelled: [],
@@ -43,15 +48,47 @@ export function canMoveWebOrder(from: WebOrderStatus, to: WebOrderStatus): boole
   return WEB_ORDER_TRANSITIONS[from].includes(to);
 }
 
-// ---------- Payment ----------
+// ---------- Payment (kept separate from the order status, V2 section 5) ----------
 
 /** cod = Cash on Delivery (courier collects). card = PayHere (M6 owns the PayHere integration). */
 export const PaymentMethodSchema = z.enum(['cod', 'card']);
 export type PaymentMethod = z.infer<typeof PaymentMethodSchema>;
 
-/** For COD, payment stays pending until the owner marks the courier's cash as received. */
-export const PaymentStatusSchema = z.enum(['pending', 'paid', 'failed', 'refunded']);
+/**
+ * Card (PayHere): pending -> authorised (verified callback) -> settled (money reached the bank).
+ *   Can also be failed, or refund_pending -> refunded.
+ * COD: awaiting_collection -> collected (courier took the cash) -> remitted (courier paid Jogy).
+ *   Can also be refund_pending -> refunded.
+ * A card payment is not cash in the bank until it is settled, and COD is not until it is remitted.
+ */
+export const PAYMENT_STATUSES = [
+  'pending',
+  'authorised',
+  'settled',
+  'failed',
+  'awaiting_collection',
+  'collected',
+  'remitted',
+  'refund_pending',
+  'refunded',
+] as const;
+export const PaymentStatusSchema = z.enum(PAYMENT_STATUSES);
 export type PaymentStatus = z.infer<typeof PaymentStatusSchema>;
+
+/** Which payment statuses make sense for each method. */
+export const PAYMENT_STATUSES_BY_METHOD: Record<PaymentMethod, readonly PaymentStatus[]> = {
+  card: ['pending', 'authorised', 'settled', 'failed', 'refund_pending', 'refunded'],
+  cod: ['awaiting_collection', 'collected', 'remitted', 'refund_pending', 'refunded'],
+};
+
+/** The status a new order's payment starts in. */
+export function initialPaymentStatus(method: PaymentMethod): PaymentStatus {
+  return method === 'card' ? 'pending' : 'awaiting_collection';
+}
+
+export function isPaymentStatusValidFor(method: PaymentMethod, status: PaymentStatus): boolean {
+  return PAYMENT_STATUSES_BY_METHOD[method].includes(status);
+}
 
 // ---------- Shared field rules ----------
 
@@ -122,6 +159,7 @@ export const WebOrderResponseSchema = z.object({
   total: MoneySchema,
   courierName: z.string().nullable(),
   trackingNumber: z.string().nullable(),
+  courierTrackingUrl: z.string().nullable(),
   lines: z.array(WebOrderLineSchema),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
@@ -143,25 +181,41 @@ export const WebOrderListResponseSchema = z.object({
 });
 export type WebOrderListResponse = z.infer<typeof WebOrderListResponseSchema>;
 
-/** Owner moves an order on. Handing to the courier needs the courier and its tracking number. */
+/**
+ * Owner moves an order on.
+ * Handing to the courier needs the courier and its tracking number (the tracking link is optional,
+ * because tracking is updated by hand until a courier API is verified).
+ * Cancelling or recording a failed delivery needs a reason.
+ */
 export const WebOrderStatusUpdateSchema = z
   .object({
     status: WebOrderStatusSchema,
     courierName: z.string().trim().min(1).max(80).optional(),
     trackingNumber: z.string().trim().min(1).max(80).optional(),
+    courierTrackingUrl: z.string().trim().url().max(500).optional(),
+    reason: z.string().trim().min(1).max(300).optional(),
   })
   .refine((v) => v.status !== 'handed_to_courier' || (v.courierName && v.trackingNumber), {
     message: 'Courier name and tracking number are required when handing to the courier',
+  })
+  .refine((v) => !['cancelled', 'delivery_failed'].includes(v.status) || v.reason, {
+    message: 'Give a reason when cancelling an order or recording a failed delivery',
   });
 export type WebOrderStatusUpdate = z.infer<typeof WebOrderStatusUpdateSchema>;
 
-// ---------- Track My Order (W7), no login ----------
+// ---------- Track My Order (W7) ----------
 
-/** Both are needed, so nobody can look up other people's orders by guessing numbers. */
-export const WebOrderTrackQuerySchema = z.object({
-  orderNumber: WebOrderNumberSchema,
-  phone: SriLankaMobileSchema,
-});
+/**
+ * V2: no order-number-only lookup. Each order gets a long random tracking token, sent to the
+ * customer in the confirmation SMS as a link (/track/<token>). Logged-in customers can also see
+ * their orders under My Account (W8).
+ */
+export const TrackingTokenSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_-]{32,128}$/, 'This tracking link is not valid');
+
+export const WebOrderTrackQuerySchema = z.object({ token: TrackingTokenSchema });
 export type WebOrderTrackQuery = z.infer<typeof WebOrderTrackQuerySchema>;
 
 /** What the public tracking page shows: no address, no customer details. */
@@ -169,9 +223,11 @@ export const WebOrderTrackResponseSchema = z.object({
   orderNumber: WebOrderNumberSchema,
   status: WebOrderStatusSchema,
   paymentMethod: PaymentMethodSchema,
+  paymentStatus: PaymentStatusSchema,
   total: MoneySchema,
   courierName: z.string().nullable(),
   trackingNumber: z.string().nullable(),
+  courierTrackingUrl: z.string().nullable(),
   updatedAt: z.coerce.date(),
 });
 export type WebOrderTrackResponse = z.infer<typeof WebOrderTrackResponseSchema>;
