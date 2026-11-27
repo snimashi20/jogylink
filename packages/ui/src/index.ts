@@ -9,4 +9,5 @@ export {
   type DataTableSortDirection,
   type DataTableSortValue,
 } from './data-table';
+export { ProductCard, formatRupees, type ProductCardProps } from './product-card';
 export { Modal, ConfirmDialog, type ModalProps, type ConfirmDialogProps } from './modal';
