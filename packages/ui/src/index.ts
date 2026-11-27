@@ -10,3 +10,4 @@ export {
   type DataTableSortValue,
 } from './data-table';
 export { Modal, ConfirmDialog, type ModalProps, type ConfirmDialogProps } from './modal';
+export { Breadcrumb, type BreadcrumbItem, type BreadcrumbProps } from './breadcrumb';
