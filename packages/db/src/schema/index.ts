@@ -6,10 +6,11 @@ export * from './setting';
 // M4
 export * from './route';
 export * from './shop';
+// M8
+export * from './web-order';
 // M2: supplier, batch
 // M3: purchase_order
 // M4: stock, shop, route
 // M5: sale, sale_line
 // M6: credit_entry
 // M7: return
-// M8: web_order
